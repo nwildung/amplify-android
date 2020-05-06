@@ -66,7 +66,7 @@ final class MutationProcessor {
     /**
      * Start observing the mutation outbox for locally-initiated changes.
      *
-     * To process a StorageItemChange, we try to publish it to the remote GraphQL
+     * To process a pending mutation, we try to publish it to the remote GraphQL
      * API. If that succeeds, then we can remove it from the outbox. Otherwise,
      * we have to keep the mutation in the outbox, so that we can try to publish
      * it again later, when network conditions become favorable again.
@@ -104,13 +104,13 @@ final class MutationProcessor {
     }
 
     /**
-     * Publish a successfully processed storage item change to hub.
+     * Publish a successfully processed pending mutation to hub.
      * @param processedChange A change that has been successfully processed and removed from outbox
      * @param <T> Type of model
      */
-    private <T extends Model> void announceSuccessfulPublication(PendingMutation<T> processedChange) {
+    private <T extends Model> void announceSuccessfulPublication(PendingMutation<T> processedMutation) {
         HubEvent<PendingMutation<? extends Model>> publishedToCloudEvent =
-            HubEvent.create(DataStoreChannelEventName.PUBLISHED_TO_CLOUD, processedChange);
+            HubEvent.create(DataStoreChannelEventName.PUBLISHED_TO_CLOUD, processedMutation);
         Amplify.Hub.publish(HubChannel.DATASTORE, publishedToCloudEvent);
     }
 
@@ -123,7 +123,7 @@ final class MutationProcessor {
 
     /**
      * Attempt to publish a change (update, delete, creation) over the network.
-     * @param pendingMutation A storage item change to be published to remote API
+     * @param pendingMutation A pending mutation, waiting to be published to remote API
      * @param <T> Type of model
      * @return A single which completes with the successfully published item, or emits error
      *         if the publication fails
@@ -174,7 +174,7 @@ final class MutationProcessor {
      * @param mutation A change to an item in storage
      * @param publicationStrategy A strategy to publish the changed item
      * @param <T> The model type of the item
-     * @return A single which emits the original storage item change, upon success; emits
+     * @return A single which emits the model with its metadata, upon success; emits
      *         a failure, if publication does not succeed
      */
     private <T extends Model> Single<ModelWithMetadata<T>> publishWithStrategy(
@@ -205,7 +205,7 @@ final class MutationProcessor {
      */
     interface PublicationStrategy<T extends Model> {
         /**
-         * Publish a storage item change, over the network.
+         * Publish a pending mutation, over the network.
          * @param item An item to publish
          * @param onSuccess Called when publication succeeds
          * @param onFailure Called when publication fails
